@@ -3,14 +3,13 @@ import path from "path";
 import { fileURLToPath } from 'url';
 import formRoutes from './router/formRoutes.js';
 
-import webhookRoutes from './router/webhookRoutes.js';
-import integrationRoutes from './router/integrationRoutes.js';
+
 
 // Import DB connection function
 import connectDB from './database/db.js';
 
 
-//Auth Routes
+ //Auth Routes
 import userRoutes from './router/authRoutes.js';
 
 
@@ -26,8 +25,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "public")));  
 
 
-app.use('/api/webhooks', webhookRoutes);
-app.use('/api/integrations', integrationRoutes);
+
 // Home route
 app.get("/", (req, res) => {
     res.send("Serverless Form Builder API");
@@ -47,5 +45,5 @@ connectDB();
 
 // Start the server
 app.listen(5000, () => {
-    console.log("Server is running on port 3000");
+    console.log("Server is running on port 5000");
 });
