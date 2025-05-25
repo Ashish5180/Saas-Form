@@ -1,6 +1,6 @@
 import Form from '../models/formModel.js';
 import FormResponse from '../models/responseModel.js';
-
+import { sendEmail } from '../utils/mailService.js';
 // Create a new form and return render URL
 export const createForm = async (req, res) => {
   const { title, description, fields, settings } = req.body;
@@ -404,31 +404,62 @@ a.ssolink {
   }
 };
 
+// Submit form response
 
-// Handle form submission using formId
 export const submitFormResponse = async (req, res) => {
   try {
+    // 1. Find form by ID
     const form = await Form.findOne({ formId: req.params.id });
     if (!form) return res.status(404).send('Form not found');
 
+    // 2. Collect submitted responses
     const response = {};
     form.fields.forEach(field => {
-      response[field.name] = req.body[field.name];
+      response[field.name] = req.body[field.name] || null;
     });
 
+    // 3. Send email notification if enabled
+    if (form.settings?.notificationEmail) {
+      await sendEmail({
+        to: form.settings.notificationEmail,
+        subject: `📩 New Submission for "${form.title}"`,
+        text: `New form submission:\n${JSON.stringify(response, null, 2)}`,
+        html: `
+          <h2>New Form Submission: ${form.title}</h2>
+          <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
+            ${Object.entries(response).map(([key, value]) => `
+              <tr>
+                <td><strong>${key}</strong></td>
+                <td>${value ?? 'N/A'}</td>
+              </tr>
+            `).join('')}
+          </table>
+        `,
+      });
+    }
+
+    // 4. Save response to DB
     await FormResponse.create({
       formId: form._id,
-      response
+      response,
+      submittedAt: new Date(),
     });
 
+
+// Redirect if redirect URL is set
+    if (form.settings?.redirectUrl) {
+      return res.redirect(form.settings.redirecturl);
+    }
+
+    // 5. Return success HTML
     res.send(`
       <html>
-        <body style="font-family: Arial; padding: 20px;">
-          <div style="padding: 20px; background: #d4edda; color: #155724; border-radius: 4px;">
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <div style="background: #d4edda; color: #155724; padding: 15px; border-radius: 5px;">
             ✅ Thank you! Your response has been submitted successfully.
           </div>
           <br />
-          <a href="/">⬅️ Back to Home</a>
+          <a href="/" style="text-decoration: none; color: #007bff;">⬅️ Back to Home</a>
         </body>
       </html>
     `);

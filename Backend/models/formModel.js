@@ -35,6 +35,8 @@ const formSchema = new mongoose.Schema({
     default: uuidv4,
     unique: true
   },
+  // userId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  createdAt: { type: Date, default: Date.now },
   title: { type: String, required: true },
   description: String,
   fields: [fieldSchema],
