@@ -22,12 +22,45 @@ const Signup = () => {
   // Sign Up logic
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    // if (formData.password !== formData.confirmPassword) {
-    //   toast.error('Passwords do not match');
-    //   return;
-    // }
 
+    if (formData.password !== formData.confirmPassword) {
+      toast.error('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: formData.name,
+          email: formData.email,
+          password: formData.password
+        })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || 'Signup failed');
+        setLoading(false);
+        return;
+      }
+
+      toast.success('Signup successful, please login');
+      setLoading(false);
+
+      // Redirect to login
+      navigate('/login');
+    } catch (error) {
+      console.error('Signup error:', error);
+      toast.error('Something went wrong');
+      setLoading(false);
+    }
   };
 
   return (
@@ -47,9 +80,7 @@ const Signup = () => {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
-              <label htmlFor="name" className="sr-only">
-                Full Name
-              </label>
+              <label htmlFor="name" className="sr-only">Full Name</label>
               <input
                 id="name"
                 name="name"
@@ -62,9 +93,7 @@ const Signup = () => {
               />
             </div>
             <div>
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
+              <label htmlFor="email" className="sr-only">Email address</label>
               <input
                 id="email"
                 name="email"
@@ -77,9 +106,7 @@ const Signup = () => {
               />
             </div>
             <div>
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
+              <label htmlFor="password" className="sr-only">Password</label>
               <input
                 id="password"
                 name="password"
@@ -92,9 +119,7 @@ const Signup = () => {
               />
             </div>
             <div>
-              <label htmlFor="confirmPassword" className="sr-only">
-                Confirm Password
-              </label>
+              <label htmlFor="confirmPassword" className="sr-only">Confirm Password</label>
               <input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -127,4 +152,4 @@ const Signup = () => {
   );
 };
 
-export default Signup; 
+export default Signup;

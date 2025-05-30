@@ -19,6 +19,8 @@ const Sidebar = () => {
     { path: '/submissions', label: 'Submissions', icon: <HiClipboardList className="w-5 h-5" /> },
     { path: '/webhooks', label: 'Webhooks', icon: <HiShare className="w-5 h-5" /> },
     { path: '/settings', label: 'Settings', icon: <HiCog className="w-5 h-5" /> },
+    { path: '/login', label: 'Login', icon: <HiCog className="w-5 h-5" /> },
+    { path: '/signup', label: 'Signup', icon: <HiCog className="w-5 h-5" /> },
   ];
 
   return (

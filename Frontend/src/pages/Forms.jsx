@@ -23,24 +23,29 @@ const Forms = () => {
   }, []);
 
   const loadForms = async () => {
-    try {
-      setLoading(true);
-      // Backend logic to fetch forms
-      // const response = await formService.getForms();
-      // setForms(response.data);
+  try {
+    setLoading(true);
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5000/api/forms', {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+    });
 
-      // Placeholder: Sample Data
-      setForms([
-        { _id: '1', title: 'Form 1', description: 'Description of Form 1', status: 'active', updatedAt: '2025-03-20', submissions: [] },
-        { _id: '2', title: 'Form 2', description: 'Description of Form 2', status: 'draft', updatedAt: '2025-03-18', submissions: [] },
-      ]);
-    } catch (error) {
-      console.error('Error loading forms:', error);
-      toast.error('Failed to load forms');
-    } finally {
-      setLoading(false);
-    }
-  };
+    if (!response.ok) throw new Error('Failed to fetch forms');
+    const data = await response.json();
+setForms(data || []);
+
+  } catch (error) {
+    console.error('Error loading forms:', error);
+    toast.error('Failed to load forms');
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
@@ -59,29 +64,37 @@ const Forms = () => {
   };
 
   const handleBulkDelete = async () => {
-    if (selectedForms.length === 0) {
-      toast.error('Please select at least one form to delete');
-      return;
+  if (selectedForms.length === 0) {
+    toast.error('Please select at least one form to delete');
+    return;
+  }
+
+  try {
+    const token = localStorage.getItem('token');
+
+    for (const formId of selectedForms) {
+      const response = await fetch(`http://localhost:5000/api/forms/${formId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete form: ${formId}`);
+      }
     }
 
-    try {
-      // Backend logic to delete forms
-      // for (const formId of selectedForms) {
-      //   await formService.deleteForm(formId);
-      // }
+    toast.success('Forms deleted successfully');
+    loadForms(); // refresh forms
+    setSelectedForms([]); // clear selection
+  } catch (error) {
+    console.error('Error deleting forms:', error);
+    toast.error('Failed to delete forms');
+  }
+};
 
-      // Placeholder: Success message
-      toast.success('Forms deleted successfully');
-
-      // Refresh forms list
-      loadForms();
-      // Clear selection
-      setSelectedForms([]);
-    } catch (error) {
-      console.error('Error deleting forms:', error);
-      toast.error('Failed to delete forms');
-    }
-  };
 
   const handleExport = async (formId) => {
     try {
@@ -235,17 +248,19 @@ const Forms = () => {
                   </td>
                   <td className="px-6 py-4 text-gray-600">{form.submissions?.length || 0}</td>
                   <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                    {/* <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                       form.status === 'active' ? 'bg-green-100 text-green-800' :
                       form.status === 'draft' ? 'bg-yellow-100 text-yellow-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
-                      {form.status.charAt(0).toUpperCase() + form.status.slice(1)}
-                    </span>
+                      {forms.map((form) => (
+  <div>{typeof form.name === 'string' ? form.name.charAt(0) : 'N/A'}</div>
+))}
+                    </span> */}
                   </td>
-                  <td className="px-6 py-4 text-gray-600">
+                  {/* <td className="px-6 py-4 text-gray-600">
                     {new Date(form.updatedAt).toLocaleDateString()}
-                  </td>
+                  </td> */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end space-x-3">
                       <button 

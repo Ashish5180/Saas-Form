@@ -6,8 +6,10 @@ const userSchema = new mongoose.Schema({
   password: { type: String, required: true },
   forms: [{
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'Form'
+    ref: 'Form',
+    required: false // Optional, if you want to link forms to users
   }],
+  
 }, { timestamps: true });
 
 const User = mongoose.model('User', userSchema);

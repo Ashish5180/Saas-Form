@@ -1,14 +1,21 @@
 import Form from '../models/formModel.js';
 import FormResponse from '../models/responseModel.js';
+import  User from '../models/userModel.js';
 import { sendEmail } from '../utils/mailService.js';
+import mongoose from 'mongoose';
+
+
 // Create a new form and return render URL
 export const createForm = async (req, res) => {
   const { title, description, fields, settings } = req.body;
-
+const userId = req.user.id; 
   try {
-    const newForm = new Form({ title, description, fields, settings });
+    const newForm = new Form({ title, description, fields, settings ,  userId});
     await newForm.save();
 
+    await User.findByIdAndUpdate(userId, {
+      $push: { forms: newForm._id }
+    });
     // Generate render URL
     const renderUrl = `${req.protocol}://${req.get('host')}/api/forms/${newForm.formId}/render`;
     console.log(`🆕 Render Form UI URL: ${renderUrl}`);
@@ -25,9 +32,9 @@ export const createForm = async (req, res) => {
 };
 
 // Get all forms
-export const getAllForms = async (req, res) => {
+export const getAllForms = async (req, res) => { 
   try {
-    const forms = await Form.find();
+    const forms = await Form.find({ userId: req.user.id });
     res.status(200).json(forms);
   } catch (err) {
     console.error("❌ Error fetching forms:", err);
@@ -35,11 +42,18 @@ export const getAllForms = async (req, res) => {
   }
 };
 
-// Get a single form by secure formId
+// Get a single form by formId
 export const getFormById = async (req, res) => {
   try {
     const form = await Form.findOne({ formId: req.params.id });
+
     if (!form) return res.status(404).json({ error: "Form not found" });
+
+    // Check if the form belongs to the logged-in user
+    if (form.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
     res.status(200).json(form);
   } catch (err) {
     console.error("❌ Error fetching form:", err);
@@ -47,15 +61,19 @@ export const getFormById = async (req, res) => {
   }
 };
 
-// Update form by formId
+// Update form
 export const updateForm = async (req, res) => {
   try {
-    const form = await Form.findOneAndUpdate(
-      { formId: req.params.id },
-      req.body,
-      { new: true }
-    );
+    const form = await Form.findOne({ formId: req.params.id });
+
     if (!form) return res.status(404).json({ error: "Form not found" });
+
+    if (form.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    Object.assign(form, req.body);
+    await form.save();
 
     res.status(200).json({
       message: "Form updated successfully",
@@ -67,11 +85,24 @@ export const updateForm = async (req, res) => {
   }
 };
 
-// Delete form by formId
+// Delete form
 export const deleteForm = async (req, res) => {
   try {
-    const deletedForm = await Form.findOneAndDelete({ formId: req.params.id });
-    if (!deletedForm) return res.status(404).json({ error: "Form not found" });
+    const form = await Form.findById(req.params.id);
+
+
+    if (!form) return res.status(404).json({ error: "Form not found" });
+
+    if (form.userId.toString() !== req.user.id) {
+      return res.status(403).json({ error: "Unauthorized access" });
+    }
+
+    await form.deleteOne();
+
+    // Remove reference from User
+    await User.findByIdAndUpdate(req.user.id, {
+      $pull: { forms: form._id }
+    });
 
     res.status(200).json({ message: "Form deleted successfully" });
   } catch (err) {
@@ -408,7 +439,7 @@ a.ssolink {
 
 export const submitFormResponse = async (req, res) => {
   try {
-    // 1. Find form by ID
+    // 1. Find form by formId
     const form = await Form.findOne({ formId: req.params.id });
     if (!form) return res.status(404).send('Form not found');
 
@@ -418,40 +449,40 @@ export const submitFormResponse = async (req, res) => {
       response[field.name] = req.body[field.name] || null;
     });
 
-    // 3. Send email notification if enabled
-    if (form.settings?.notificationEmail) {
-      await sendEmail({
-        to: form.settings.notificationEmail,
-        subject: `📩 New Submission for "${form.title}"`,
-        text: `New form submission:\n${JSON.stringify(response, null, 2)}`,
-        html: `
-          <h2>New Form Submission: ${form.title}</h2>
-          <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
-            ${Object.entries(response).map(([key, value]) => `
-              <tr>
-                <td><strong>${key}</strong></td>
-                <td>${value ?? 'N/A'}</td>
-              </tr>
-            `).join('')}
-          </table>
-        `,
-      });
-    }
+    // // 3. Send email notification if enabled
+    // if (form.settings?.notificationEmail) {
+    //   await sendEmail({
+    //     to: form.settings.notificationEmail,
+    //     subject: `📩 New Submission for "${form.title}"`,
+    //     text: `New form submission:\n${JSON.stringify(response, null, 2)}`,
+    //     html: `
+    //       <h2>New Form Submission: ${form.title}</h2>
+    //       <table border="1" cellpadding="10" cellspacing="0" style="border-collapse: collapse;">
+    //         ${Object.entries(response).map(([key, value]) => `
+    //           <tr>
+    //             <td><strong>${key}</strong></td>
+    //             <td>${value ?? 'N/A'}</td>
+    //           </tr>
+    //         `).join('')}
+    //       </table>
+    //     `,
+    //   });
+    // }
 
-    // 4. Save response to DB
+    // 4. Save response to DB with reference to user (form owner)
     await FormResponse.create({
       formId: form._id,
+      userId: form.userId, // ✅ Add this line (assuming `user` field exists in Form model)
       response,
       submittedAt: new Date(),
     });
 
-
-// Redirect if redirect URL is set
+    // 5. Redirect if redirect URL is set
     if (form.settings?.redirectUrl) {
-      return res.redirect(form.settings.redirecturl);
+      return res.redirect(form.settings.redirectUrl);
     }
 
-    // 5. Return success HTML
+    // 6. Return success HTML
     res.send(`
       <html>
         <body style="font-family: Arial, sans-serif; padding: 20px;">
@@ -466,5 +497,37 @@ export const submitFormResponse = async (req, res) => {
   } catch (err) {
     console.error("❌ Error submitting form response:", err);
     res.status(500).send('Server error');
+  }
+};
+
+
+
+
+export const getFormResponses = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ error: "Invalid user ID" });
+    }
+
+    const userObjectId = new mongoose.Types.ObjectId(userId);
+
+    const responses = await FormResponse.find({ userId: userObjectId })
+      .populate("formId", "title _id") // only populate required fields
+      .sort({ submittedAt: -1 });
+
+    const formatted = responses.map((resp) => ({
+      formTitle: resp.formId?.title || "Untitled Form",
+      formId: resp.formId?._id,
+      response: resp.response,
+      responseTime: resp.responseTime || null,
+      submittedAt: resp.submittedAt,
+    }));
+
+    res.status(200).json({ responses: formatted });
+  } catch (err) {
+    console.error("❌ Error fetching user responses:", err);
+    res.status(500).json({ error: "Server error" });
   }
 };

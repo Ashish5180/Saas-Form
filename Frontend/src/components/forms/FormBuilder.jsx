@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { HiPlus, HiTrash, HiSave } from 'react-icons/hi';
 import { toast } from 'react-toastify';
+import axios from 'axios';
 
 const FormBuilder = () => {
   const [form, setForm] = useState({
@@ -39,7 +40,7 @@ const FormBuilder = () => {
   const updateField = (index, field) => {
     setForm(prev => ({
       ...prev,
-      fields: prev.fields.map((f, i) => 
+      fields: prev.fields.map((f, i) =>
         i === index ? { ...f, ...field } : f
       )
     }));
@@ -52,13 +53,47 @@ const FormBuilder = () => {
     }));
   };
 
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setLoading(true);
 
-  // Handle form submission logic
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
+  try {
+    const token = localStorage.getItem('token'); // Assuming JWT is stored here
 
-  };
+    const response = await axios.post(
+      'http://localhost:5000/api/forms',
+      form,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    toast.success('Form saved successfully!');
+    // console.log("🌐 Render URL:", response.data.renderUrl); // Optional
+    setForm({
+  title: '',
+  description: '',
+  fields: [],
+  settings: {
+    allowMultipleSubmissions: true,
+    requireAuthentication: false,
+    notificationEmail: '',
+    redirectUrl: '',
+    customCSS: '',
+    customJS: ''
+  }
+});
+
+  } catch (error) {
+    console.error("❌ Error submitting form:", error.response?.data || error);
+    toast.error(error.response?.data?.error || 'Failed to save the form.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="max-w-4xl mx-auto p-6">
@@ -108,109 +143,116 @@ const FormBuilder = () => {
           </div>
 
           <div className="space-y-4">
-            {form.fields.map((field, index) => (
-              <div key={index} className="border rounded-lg p-4">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex-1 space-y-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Field Type
-                      </label>
-                      <select
-                        value={field.type}
-                        onChange={(e) => updateField(index, { type: e.target.value })}
-                        className="input"
-                      >
-                        <option value="text">Text</option>
-                        <option value="email">Email</option>
-                        <option value="number">Number</option>
-                        <option value="textarea">Text Area</option>
-                        <option value="select">Select</option>
-                        <option value="checkbox">Checkbox</option>
-                        <option value="radio">Radio</option>
-                        <option value="date">Date</option>
-                      </select>
-                    </div>
+           {Array.isArray(form?.fields) && form.fields.length > 0 ? (
+  form.fields.map((field, index) => (
+    <div key={index} className="border rounded-lg p-4">
+      <div className="flex justify-between items-start mb-4">
+        <div className="flex-1 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Field Type
+            </label>
+            <select
+              value={field.type}
+              onChange={(e) => updateField(index, { type: e.target.value })}
+              className="input"
+            >
+              <option value="text">Text</option>
+              <option value="email">Email</option>
+              <option value="number">Number</option>
+              <option value="textarea">Text Area</option>
+              <option value="select">Select</option>
+              <option value="checkbox">Checkbox</option>
+              <option value="radio">Radio</option>
+              <option value="date">Date</option>
+            </select>
+          </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Label
-                      </label>
-                      <input
-                        type="text"
-                        value={field.label}
-                        onChange={(e) => updateField(index, { label: e.target.value })}
-                        className="input"
-                      />
-                    </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Label
+            </label>
+            <input
+              type="text"
+              value={field.label}
+              onChange={(e) => updateField(index, { label: e.target.value })}
+              className="input"
+            />
+          </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Name (for form submission)
-                      </label>
-                      <input
-                        type="text"
-                        value={field.name}
-                        onChange={(e) => updateField(index, { name: e.target.value })}
-                        className="input"
-                      />
-                    </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Name (for form submission)
+            </label>
+            <input
+              type="text"
+              value={field.name}
+              onChange={(e) => updateField(index, { name: e.target.value })}
+              className="input"
+            />
+          </div>
 
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Placeholder
-                      </label>
-                      <input
-                        type="text"
-                        value={field.placeholder}
-                        onChange={(e) => updateField(index, { placeholder: e.target.value })}
-                        className="input"
-                      />
-                    </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Placeholder
+            </label>
+            <input
+              type="text"
+              value={field.placeholder}
+              onChange={(e) => updateField(index, { placeholder: e.target.value })}
+              className="input"
+            />
+          </div>
 
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        checked={field.required}
-                        onChange={(e) => updateField(index, { required: e.target.checked })}
-                        className="h-4 w-4 text-primary"
-                      />
-                      <label className="ml-2 text-sm text-gray-700">
-                        Required field
-                      </label>
-                    </div>
+          <div className="flex items-center">
+            <input
+              type="checkbox"
+              checked={field.required}
+              onChange={(e) => updateField(index, { required: e.target.checked })}
+              className="h-4 w-4 text-primary"
+            />
+            <label className="ml-2 text-sm text-gray-700">
+              Required field
+            </label>
+          </div>
 
-                    {(field.type === 'select' || field.type === 'radio') && (
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Options (one per line)
-                        </label>
-                        <textarea
-                          value={field.options.map(opt => opt.label).join('\n')}
-                          onChange={(e) => {
-                            const options = e.target.value.split('\n').map(label => ({
-                              label: label.trim(),
-                              value: label.trim().toLowerCase().replace(/\s+/g, '_')
-                            }));
-                            updateField(index, { options });
-                          }}
-                          className="input"
-                          rows="3"
-                        />
-                      </div>
-                    )}
-                  </div>
+          {(field.type === 'select' || field.type === 'radio') && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Options (one per line)
+              </label>
+              <textarea
+                value={field.options.map(opt => opt.label).join('\n')}
+                onChange={(e) => {
+                  const options = e.target.value.split('\n').map(label => ({
+                    label: label.trim(),
+                    value: label.trim().toLowerCase().replace(/\s+/g, '_')
+                  }));
+                  updateField(index, { options });
+                }}
+                className="input"
+                rows="3"
+              />
+            </div>
+          )}
+        </div>
 
-                  <button
-                    type="button"
-                    onClick={() => removeField(index)}
-                    className="ml-4 text-red-500 hover:text-red-700"
-                  >
-                    <HiTrash className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+        <button
+          type="button"
+          onClick={() => removeField(index)}
+          className="ml-4 text-red-500 hover:text-red-700"
+        >
+          <HiTrash className="w-5 h-5" />
+        </button>
+      </div>
+    </div>
+  ))
+) : (
+  <p className="text-gray-500">
+    No fields added yet. Click "Add Field" to begin.
+  </p>
+)}
+
           </div>
         </div>
 
@@ -222,13 +264,15 @@ const FormBuilder = () => {
               <input
                 type="checkbox"
                 checked={form.settings.allowMultipleSubmissions}
-                onChange={(e) => setForm(prev => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    allowMultipleSubmissions: e.target.checked
-                  }
-                }))}
+                onChange={(e) =>
+                  setForm(prev => ({
+                    ...prev,
+                    settings: {
+                      ...prev.settings,
+                      allowMultipleSubmissions: e.target.checked
+                    }
+                  }))
+                }
                 className="h-4 w-4 text-primary"
               />
               <label className="ml-2 text-sm text-gray-700">
@@ -240,13 +284,15 @@ const FormBuilder = () => {
               <input
                 type="checkbox"
                 checked={form.settings.requireAuthentication}
-                onChange={(e) => setForm(prev => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    requireAuthentication: e.target.checked
-                  }
-                }))}
+                onChange={(e) =>
+                  setForm(prev => ({
+                    ...prev,
+                    settings: {
+                      ...prev.settings,
+                      requireAuthentication: e.target.checked
+                    }
+                  }))
+                }
                 className="h-4 w-4 text-primary"
               />
               <label className="ml-2 text-sm text-gray-700">
@@ -261,13 +307,15 @@ const FormBuilder = () => {
               <input
                 type="email"
                 value={form.settings.notificationEmail}
-                onChange={(e) => setForm(prev => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    notificationEmail: e.target.value
-                  }
-                }))}
+                onChange={(e) =>
+                  setForm(prev => ({
+                    ...prev,
+                    settings: {
+                      ...prev.settings,
+                      notificationEmail: e.target.value
+                    }
+                  }))
+                }
                 className="input"
               />
             </div>
@@ -279,19 +327,22 @@ const FormBuilder = () => {
               <input
                 type="url"
                 value={form.settings.redirectUrl}
-                onChange={(e) => setForm(prev => ({
-                  ...prev,
-                  settings: {
-                    ...prev.settings,
-                    redirectUrl: e.target.value
-                  }
-                }))}
+                onChange={(e) =>
+                  setForm(prev => ({
+                    ...prev,
+                    settings: {
+                      ...prev.settings,
+                      redirectUrl: e.target.value
+                    }
+                  }))
+                }
                 className="input"
               />
             </div>
           </div>
         </div>
 
+        {/* Save Button */}
         <div className="flex justify-end">
           <button
             type="submit"
@@ -307,4 +358,4 @@ const FormBuilder = () => {
   );
 };
 
-export default FormBuilder; 
+export default FormBuilder;

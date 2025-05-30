@@ -8,6 +8,7 @@ const Login = () => {
     password: ''
   });
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate(); // for redirection
 
   const handleChange = (e) => {
     setFormData({
@@ -16,13 +17,40 @@ const Login = () => {
     });
   };
 
-
-// Authentication Backend logic
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
 
-    
+    try {
+      const res = await fetch('http://localhost:5000/api/auth/login', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        toast.error(data.message || 'Login failed');
+        setLoading(false);
+        return;
+      }
+
+      // Save token to localStorage
+      localStorage.setItem('token', data.token);
+
+      toast.success('Login successful');
+      setLoading(false);
+
+      // Redirect after login
+      navigate('/dashboard'); // change this path to your actual dashboard/home page
+    } catch (error) {
+      console.error('Login error:', error);
+      toast.error('Something went wrong');
+      setLoading(false);
+    }
   };
 
   return (
@@ -112,4 +140,4 @@ const Login = () => {
   );
 };
 
-export default Login; 
+export default Login;

@@ -1,71 +1,122 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useParams } from 'react-router-dom';
+import axios from 'axios';
 import {
   HiSearch,
-  HiFilter,
   HiTrash,
   HiDownload,
   HiEye,
   HiDocumentText,
 } from 'react-icons/hi';
+import { jwtDecode } from 'jwt-decode';
+
 
 const Submissions = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSubmissions, setSelectedSubmissions] = useState([]);
-  const [filterForm, setFilterForm] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterDate, setFilterDate] = useState('all');
+  const [submissions, setSubmissions] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const submissions = [
-    {
-      id: 1,
-      formName: 'Customer Feedback Form',
-      submitterName: 'John Doe',
-      submitterEmail: 'john@example.com',
-      submissionDate: '2024-03-15 14:30',
-      status: 'new',
-    },
-    {
-      id: 2,
-      formName: 'Product Survey',
-      submitterName: 'Jane Smith',
-      submitterEmail: 'jane@example.com',
-      submissionDate: '2024-03-15 13:45',
-      status: 'reviewed',
-    },
-    {
-      id: 3,
-      formName: 'Support Ticket',
-      submitterName: 'Mike Johnson',
-      submitterEmail: 'mike@example.com',
-      submissionDate: '2024-03-15 12:15',
-      status: 'archived',
-    },
-  ];
+
+ useEffect(() => {
+  const fetchSubmissions = async () => {
+    try {
+      setLoading(true);
+      const token = localStorage.getItem('token');
+      const decoded = jwtDecode(token);
+      const userId = decoded.id;
+
+      const response = await axios.get(`http://localhost:5000/api/forms/${userId}/responses`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      const formatted = response.data.responses.map((res, index) => ({
+        id: `${index}-${res.formId}`,
+        formName: res.formTitle || 'Untitled Form',
+        submitterName: res.response?.name || 'Anonymous',
+        submitterEmail: res.response?.email || 'N/A',
+        submissionDate: new Date(res.submittedAt).toLocaleString(),
+        status: 'new',
+        raw: res,
+      }));
+
+      setSubmissions(formatted);
+    } catch (err) {
+      console.error('Error fetching submissions:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchSubmissions();
+}, []);
+
+
+
+  // Filtering & Searching logic
+  const filteredSubmissions = useMemo(() => {
+    return submissions.filter((sub) => {
+      // Filter by status
+      if (filterStatus !== 'all' && sub.status !== filterStatus) return false;
+
+      // Filter by date
+      if (filterDate !== 'all') {
+        const now = new Date();
+        const submissionDate = new Date(sub.raw.submittedAt);
+
+        if (filterDate === 'today') {
+          if (submissionDate.toDateString() !== now.toDateString()) return false;
+        } else if (filterDate === 'week') {
+          const oneWeekAgo = new Date(now);
+          oneWeekAgo.setDate(now.getDate() - 7);
+          if (submissionDate < oneWeekAgo) return false;
+        } else if (filterDate === 'month') {
+          const oneMonthAgo = new Date(now);
+          oneMonthAgo.setMonth(now.getMonth() - 1);
+          if (submissionDate < oneMonthAgo) return false;
+        }
+      }
+
+      // Search filter on submitter name or email
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        if (
+          !sub.submitterName.toLowerCase().includes(q) &&
+          !sub.submitterEmail.toLowerCase().includes(q)
+        )
+          return false;
+      }
+
+      return true;
+    });
+  }, [submissions, filterStatus, filterDate, searchQuery]);
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedSubmissions(submissions.map(sub => sub.id));
+      setSelectedSubmissions(filteredSubmissions.map((sub) => sub.id));
     } else {
       setSelectedSubmissions([]);
     }
   };
 
   const handleSelectSubmission = (id) => {
-    setSelectedSubmissions(prev =>
-      prev.includes(id)
-        ? prev.filter(subId => subId !== id)
-        : [...prev, id]
+    setSelectedSubmissions((prev) =>
+      prev.includes(id) ? prev.filter((subId) => subId !== id) : [...prev, id]
     );
   };
 
   const handleBulkDelete = () => {
-    // Implement bulk delete logic
     console.log('Deleting submissions:', selectedSubmissions);
+    // Implement bulk delete API call here
   };
 
   const handleExport = () => {
-    // Implement export logic
     console.log('Exporting submissions:', selectedSubmissions);
+    // Implement export logic here
   };
 
   return (
@@ -86,17 +137,8 @@ const Submissions = () => {
             className="input pl-10"
           />
         </div>
+
         <div className="flex gap-2">
-          <select
-            value={filterForm}
-            onChange={(e) => setFilterForm(e.target.value)}
-            className="input"
-          >
-            <option value="all">All Forms</option>
-            <option value="feedback">Customer Feedback</option>
-            <option value="survey">Product Survey</option>
-            <option value="support">Support Ticket</option>
-          </select>
           <select
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
@@ -148,69 +190,107 @@ const Submissions = () => {
       {/* Submissions Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-200">
-                <th className="px-6 py-4 text-left">
-                  <input
-                    type="checkbox"
-                    onChange={handleSelectAll}
-                    checked={selectedSubmissions.length === submissions.length}
-                    className="rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                </th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Form</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Submitter</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Email</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Date</th>
-                <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">Status</th>
-                <th className="px-6 py-4 text-right text-sm font-medium text-gray-600">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {submissions.map((submission) => (
-                <tr key={submission.id} className="hover:bg-gray-50">
-                  <td className="px-6 py-4">
+          {loading ? (
+            <div className="text-center py-10 text-gray-500">
+              Loading submissions...
+            </div>
+          ) : filteredSubmissions.length === 0 ? (
+            <div className="text-center py-10 text-gray-500">
+              No submissions found.
+            </div>
+          ) : (
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-gray-200">
+                  <th className="px-6 py-4 text-left">
                     <input
                       type="checkbox"
-                      checked={selectedSubmissions.includes(submission.id)}
-                      onChange={() => handleSelectSubmission(submission.id)}
+                      onChange={handleSelectAll}
+                      checked={
+                        filteredSubmissions.length > 0 &&
+                        selectedSubmissions.length === filteredSubmissions.length
+                      }
                       className="rounded border-gray-300 text-primary focus:ring-primary"
                     />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center">
-                      <HiDocumentText className="w-5 h-5 text-primary mr-3" />
-                      <span className="font-medium text-text">{submission.formName}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{submission.submitterName}</td>
-                  <td className="px-6 py-4 text-gray-600">{submission.submitterEmail}</td>
-                  <td className="px-6 py-4 text-gray-600">{submission.submissionDate}</td>
-                  <td className="px-6 py-4">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      submission.status === 'new' ? 'bg-blue-100 text-blue-800' :
-                      submission.status === 'reviewed' ? 'bg-green-100 text-green-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {submission.status.charAt(0).toUpperCase() + submission.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center justify-end space-x-3">
-                      <button className="text-gray-400 hover:text-primary">
-                        <HiEye className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </td>
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                    Form
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                    Submitter
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                    Email
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                    Date
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-right text-sm font-medium text-gray-600">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredSubmissions.map((submission) => (
+                  <tr key={submission.id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <input
+                        type="checkbox"
+                        checked={selectedSubmissions.includes(submission.id)}
+                        onChange={() => handleSelectSubmission(submission.id)}
+                        className="rounded border-gray-300 text-primary focus:ring-primary"
+                      />
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center">
+                        <HiDocumentText className="w-5 h-5 text-primary mr-3" />
+                        <span className="font-medium text-text">
+                          {submission.formName}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {submission.submitterName}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {submission.submitterEmail}
+                    </td>
+                    <td className="px-6 py-4 text-gray-600">
+                      {submission.submissionDate}
+                    </td>
+                    <td className="px-6 py-4">
+                      <span
+                        className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          submission.status === 'new'
+                            ? 'bg-blue-100 text-blue-800'
+                            : submission.status === 'reviewed'
+                            ? 'bg-green-100 text-green-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {submission.status.charAt(0).toUpperCase() +
+                          submission.status.slice(1)}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center justify-end space-x-3">
+                        <button className="text-gray-400 hover:text-primary">
+                          <HiEye className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
     </div>
   );
 };
 
-export default Submissions; 
+export default Submissions;

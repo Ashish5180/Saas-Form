@@ -1,28 +1,34 @@
 import express from 'express';
-import { createForm, getAllForms, getFormById, updateForm, deleteForm , renderFormUI,
-  submitFormResponse} from '../controllers/formController.js';
+import {
+  createForm,
+  getAllForms,
+  getFormById,
+  updateForm,
+  deleteForm,
+  renderFormUI,
+  submitFormResponse,
+  getFormResponses
+} from '../controllers/formController.js';
+
+import authMiddleware from '../middlewares/authMiddleware.js';
 
 const router = express.Router();
 
-// Create a new form
+// ✅ PUBLIC routes (no auth)
+router.get('/:id/render', renderFormUI);
+router.post('/:id/submit', submitFormResponse);
+
+// Middleware to protect below routes
+router.use(authMiddleware);
+
+// Create, get user's forms, update, delete
 router.post('/', createForm);
-
-// Get all forms
 router.get('/', getAllForms);
-
-// Get a specific form by ID
 router.get('/:id', getFormById);
-
-// Update a form by ID
 router.put('/:id', updateForm);
-
-// Delete a form by ID
 router.delete('/:id', deleteForm);
 
-// Render the form UI
-router.get('/:id/render', renderFormUI);
-
-// Submit a form response
-router.post('/:id/submit', submitFormResponse);
+// Add this route for fetching form responses
+router.get('/:id/responses', getFormResponses);
 
 export default router;
